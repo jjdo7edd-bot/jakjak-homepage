@@ -134,7 +134,7 @@
   function isSvg(file) { return file.type === 'image/svg+xml' || /\.svg$/i.test(file.name); }
   function uploadImage(file) {
     var svg = isSvg(file);
-    var path = 'assets/works/' + Date.now() + (svg ? '.svg' : '.jpg');
+    var path = 'assets/works/' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + (svg ? '.svg' : '.jpg');
     if (svg) lastImageSize = null;
     /* SVG는 벡터 그대로 저장해서 확대해도 선명해요. 나머지는 고화질 JPG로 저장해요. */
     return (svg ? readAsBase64(file) : resizeToJpegBase64(file)).then(function (b64) {
@@ -153,6 +153,13 @@
         return api('DELETE', 'contents/' + path, { message: 'Remove work image', branch: BRANCH, sha: j.sha });
       });
     });
+  }
+
+  /* 작품 사진 목록 (예전 데이터는 image 하나만 있어요) */
+  var MAX_IMAGES = 4;
+  function imagesOf(w) {
+    if (Array.isArray(w.images) && w.images.length) return w.images.filter(Boolean).slice(0, MAX_IMAGES);
+    return w.image ? [w.image] : [];
   }
 
   /* ---------- render ---------- */
@@ -216,11 +223,29 @@
   document.body.appendChild(modal);
   var lastFocus = null;
 
+  var PLACEHOLDER = '<div class="jj-modal-img-inner">' + "<svg width='36' height='36' viewBox='0 0 24 24' fill='none' stroke='#C8C8C8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' role='img' aria-label='작업 이미지 자리'><rect x='3' y='4' width='18' height='16' rx='2'></rect><circle cx='9' cy='10' r='1.8'></circle><path d='M21 16.5 15.5 11 6 20'></path></svg>" + '</div>';
+  var ARROW = function (dir) {
+    var d = dir === 'prev' ? 'M15 5 8 12l7 7' : 'M9 5l7 7-7 7';
+    return '<button type="button" class="jj-modal-nav jj-modal-' + dir + '" aria-label="' + (dir === 'prev' ? '이전 사진' : '다음 사진') + '">' +
+      '<svg width="14" height="22" viewBox="4 3 16 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"></path></svg></button>';
+  };
+  var cur = { imgs: [], i: 0, title: '' };
+  function showSlide(i) {
+    var box = modal.querySelector('.jj-modal-img');
+    if (!cur.imgs.length) { box.innerHTML = PLACEHOLDER; return; }
+    cur.i = Math.max(0, Math.min(cur.imgs.length - 1, i));
+    var n = cur.imgs.length;
+    box.innerHTML =
+      '<div class="jj-modal-img-inner"><img src="' + esc(imgSrc(cur.imgs[cur.i])) + '" alt="' + esc(cur.title) + (n > 1 ? ' (' + (cur.i + 1) + '/' + n + ')' : '') + '"></div>' +
+      (n > 1 && cur.i > 0 ? ARROW('prev') : '') +
+      (n > 1 && cur.i < n - 1 ? ARROW('next') : '');
+    /* 다음 사진 미리 불러오기 */
+    if (cur.i + 1 < n) { var pre = new Image(); pre.src = imgSrc(cur.imgs[cur.i + 1]); }
+  }
   function openWork(w) {
     lastFocus = document.activeElement;
-    modal.querySelector('.jj-modal-img').innerHTML = w.image
-      ? '<div class="jj-modal-img-inner"><img src="' + esc(imgSrc(w.image)) + '" alt="' + esc(w.title) + '"></div>'
-      : '<div class="jj-modal-img-inner">' + "<svg width='36' height='36' viewBox='0 0 24 24' fill='none' stroke='#C8C8C8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' role='img' aria-label='작업 이미지 자리'><rect x='3' y='4' width='18' height='16' rx='2'></rect><circle cx='9' cy='10' r='1.8'></circle><path d='M21 16.5 15.5 11 6 20'></path></svg>" + '</div>';
+    cur = { imgs: imagesOf(w), i: 0, title: w.title || '' };
+    showSlide(0);
     modal.querySelector('h2').textContent = w.title || '';
     modal.querySelector('.jj-modal-year').textContent = w.year || '';
     modal.querySelector('.jj-modal-body').textContent = w.description || '';
@@ -233,7 +258,7 @@
     document.body.style.overflow = '';
     if (lastFocus) lastFocus.focus();
   }
-  /* 팝업 이미지 호버 확대 (1.5배, 마우스 위치 기준) */
+  /* 팝업 이미지 호버 확대 (2배, 마우스 위치 기준) */
   var zoomBox = modal.querySelector('.jj-modal-img');
   zoomBox.addEventListener('mousemove', function (e) {
     var inner = e.target.closest('.jj-modal-img-inner');
@@ -258,10 +283,21 @@
   });
 
   modal.addEventListener('click', function (e) {
+    var nav = e.target.closest('.jj-modal-nav');
+    if (nav) {
+      var dir = nav.classList.contains('jj-modal-prev') ? -1 : 1;
+      showSlide(cur.i + dir);
+      var again = modal.querySelector(dir < 0 ? '.jj-modal-prev' : '.jj-modal-next') || modal.querySelector('.jj-modal-nav');
+      if (again) again.focus();
+      return;
+    }
     if (e.target === modal || e.target.closest('.jj-modal-close')) closeModal();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modal.hidden) closeModal();
+    if (modal.hidden) return;
+    if (e.key === 'Escape') closeModal();
+    else if (e.key === 'ArrowRight' && cur.i < cur.imgs.length - 1) showSlide(cur.i + 1);
+    else if (e.key === 'ArrowLeft' && cur.i > 0) showSlide(cur.i - 1);
   });
 
   grid.addEventListener('click', function (e) {
@@ -443,7 +479,12 @@
     form.innerHTML =
       '<form class="jj-form" novalidate>' +
       '<h2 class="jj-form-title">작품 추가</h2>' +
-      '<label>이미지 <span style="font-size:11px;color:#8A8A8A">권장 크기 2400 × 3000px (최소 1200 × 1500px) · JPG·PNG·SVG · 다른 비율은 가운데 기준으로 잘려 보여요</span><input type="file" name="image" accept="image/*,.svg"></label>' +
+      '<div class="jj-form-images"><span>사진 (최대 4장 · 1번이 대표 사진)</span><span style="font-size:11px;color:#8A8A8A">권장 크기 2400 × 3000px (최소 1200 × 1500px) · JPG·PNG·SVG · 다른 비율은 가운데 기준으로 잘려 보여요</span>' +
+      [1, 2, 3, 4].map(function (n) {
+        return '<div class="jj-slot" data-slot="' + (n - 1) + '"><span class="jj-slot-no">' + n + '</span><span class="jj-slot-thumb"></span>' +
+          '<input type="file" name="image' + n + '" accept="image/*,.svg" aria-label="사진 ' + n + '">' +
+          '<label class="jj-slot-del"><input type="checkbox" name="del' + n + '"> 지우기</label></div>';
+      }).join('') + '</div>' +
       '<label>제목 <input type="text" name="title" required></label>' +
       '<label>연도 <input type="text" name="year" placeholder="2026"></label>' +
       '<label>설명 <textarea name="description" rows="6"></textarea></label>' +
@@ -462,6 +503,12 @@
     f.reset();
     form.querySelector('.jj-form-title').textContent = i >= 0 ? '작품 수정' : '작품 추가';
     form.querySelector('.jj-form-status').textContent = '';
+    var olds = i >= 0 ? imagesOf(works[i]) : [];
+    form.querySelectorAll('.jj-slot').forEach(function (slot, k) {
+      var th = slot.querySelector('.jj-slot-thumb');
+      th.innerHTML = olds[k] ? '<img src="' + esc(imgSrc(olds[k])) + '" alt="">' : '';
+      slot.querySelector('.jj-slot-del').hidden = !olds[k];
+    });
     if (i >= 0) {
       f.title.value = works[i].title || '';
       f.year.value = works[i].year || '';
@@ -478,27 +525,51 @@
     var st = form.querySelector('.jj-form-status');
     var title = f.title.value.trim();
     if (!title) { st.textContent = '제목을 입력해 주세요.'; return; }
-    var file = f.image.files[0];
-    if (editing < 0 && !file) { st.textContent = '이미지를 선택해 주세요.'; return; }
+    var olds = editing >= 0 ? imagesOf(works[editing]) : [];
+    var slots = [0, 1, 2, 3].map(function (k) {
+      return { file: f['image' + (k + 1)].files[0] || null, del: f['del' + (k + 1)].checked, old: olds[k] || null };
+    });
+    var willHave = slots.some(function (x) { return x.file || (x.old && !x.del); });
+    if (!willHave) { st.textContent = '사진을 한 장 이상 올려 주세요.'; return; }
     var btn = form.querySelector('.jj-submit');
     btn.disabled = true;
     st.textContent = '저장하는 중이에요…';
-    var oldImage = editing >= 0 ? works[editing].image : null;
-    (file ? uploadImage(file) : Promise.resolve(oldImage)).then(function (path) {
-      var item = { id: editing >= 0 ? works[editing].id : String(Date.now()), title: title, year: f.year.value.trim(), image: path, description: f.description.value.trim() };
+    var small = [];
+    var done = 0, total = slots.filter(function (x) { return x.file; }).length;
+    /* 사진을 한 장씩 차례로 올려요 */
+    var chain = Promise.resolve();
+    var result = [];
+    slots.forEach(function (x, k) {
+      chain = chain.then(function () {
+        if (x.file) {
+          st.textContent = '사진 올리는 중… (' + (done + 1) + '/' + total + ')';
+          return uploadImage(x.file).then(function (path) {
+            done++;
+            if (lastImageSize && Math.min(lastImageSize[0], lastImageSize[1]) < 1000) small.push((k + 1) + '번(' + lastImageSize[0] + '×' + lastImageSize[1] + 'px)');
+            result[k] = path;
+          });
+        }
+        result[k] = x.del ? null : x.old;
+      });
+    });
+    chain.then(function () {
+      var paths = result.filter(Boolean);
+      var item = { id: editing >= 0 ? works[editing].id : String(Date.now()), title: title, year: f.year.value.trim(), image: paths[0], images: paths, description: f.description.value.trim() };
       var isEdit = editing >= 0;
+      st.textContent = '저장하는 중이에요…';
       return saveJson((isEdit ? 'Update work: ' : 'Add work: ') + title, function (list) {
         var k = list.findIndex(function (x) { return x.id === item.id; });
         if (k >= 0) list[k] = item; else list.unshift(item);
       }).then(function () {
-        if (file && oldImage && oldImage !== path) return deleteImage(oldImage);
+        /* 바뀌거나 지운 예전 사진 정리 */
+        var gone = olds.filter(function (o) { return paths.indexOf(o) < 0; });
+        return gone.reduce(function (p, o) { return p.then(function () { return deleteImage(o); }); }, Promise.resolve());
       });
     }).then(function () {
       form.hidden = true;
       page = 1;
       render();
-      var small = file && lastImageSize && Math.min(lastImageSize[0], lastImageSize[1]) < 1000;
-      status(small ? '저장했어요. 다만 원본 사진이 작아서(' + lastImageSize[0] + '×' + lastImageSize[1] + 'px) 확대하면 흐릴 수 있어요. 2400×3000px 이상을 권장해요.' : '저장했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.', small);
+      status(small.length ? '저장했어요. 다만 ' + small.join(', ') + ' 사진이 작아서 확대하면 흐릴 수 있어요. 2400×3000px 이상을 권장해요.' : '저장했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.', small.length > 0);
     }).catch(function (err) {
       st.textContent = err.message;
     }).then(function () { btn.disabled = false; });
@@ -517,7 +588,10 @@
       saveJson(msg, function (list) {
         var k = list.findIndex(function (x) { return x.id === removed.id; });
         if (k >= 0) list.splice(k, 1);
-      }).then(function () { render(); return deleteImage(removed.image); })
+      }).then(function () {
+        render();
+        return imagesOf(removed).reduce(function (p, o) { return p.then(function () { return deleteImage(o); }); }, Promise.resolve());
+      })
         .then(function () { render(); status('삭제했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.'); })
         .catch(function (err) { status(err.message, true); });
       return;
