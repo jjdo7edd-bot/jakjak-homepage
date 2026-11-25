@@ -35,9 +35,11 @@
     return isAdmin ? 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + path : path;
   }
   function api(method, path, body) {
+    if (method === 'GET') path += (path.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now();
     return fetch('https://api.github.com/repos/' + REPO + '/' + path, {
       method: method,
       headers: { Authorization: 'Bearer ' + token(), Accept: 'application/vnd.github+json' },
+      cache: 'no-store',
       body: body ? JSON.stringify(body) : undefined
     });
   }
@@ -49,28 +51,41 @@
   }
 
   /* ---------- data ---------- */
+  function fetchRemote() {
+    return api('GET', 'contents/' + JSON_PATH + '?ref=' + BRANCH).then(function (r) {
+      if (r.status === 404) return { works: [], sha: null };
+      if (!r.ok) throw new Error('목록을 불러오지 못했어요 (' + r.status + '). 다시 로그인해 주세요.');
+      return r.json().then(function (j) {
+        return { works: (JSON.parse(b64decUtf8(j.content)).works) || [], sha: j.sha };
+      });
+    });
+  }
   function load() {
     if (isAdmin && token()) {
-      return api('GET', 'contents/' + JSON_PATH + '?ref=' + BRANCH).then(function (r) {
-        if (r.status === 404) { works = []; jsonSha = null; return; }
-        if (!r.ok) throw new Error('목록을 불러오지 못했어요 (' + r.status + '). 토큰을 확인해 주세요.');
-        return r.json().then(function (j) {
-          jsonSha = j.sha;
-          works = (JSON.parse(b64decUtf8(j.content)).works) || [];
-        });
-      });
+      return fetchRemote().then(function (d) { works = d.works; jsonSha = d.sha; });
     }
-    return fetch(JSON_PATH + '?v=' + Date.now()).then(function (r) {
+    return fetch(JSON_PATH + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) {
       return r.ok ? r.json() : { works: [] };
     }).then(function (j) { works = j.works || []; }).catch(function () { works = []; });
   }
-
-  function saveJson(message) {
-    var body = { message: message, branch: BRANCH, content: b64encUtf8(JSON.stringify({ works: works }, null, 2) + '\n') };
-    if (jsonSha) body.sha = jsonSha;
-    return api('PUT', 'contents/' + JSON_PATH, body).then(function (r) {
-      if (!r.ok) return r.json().then(function (e) { throw new Error('저장 실패: ' + (e.message || r.status)); });
-      return r.json().then(function (j) { jsonSha = j.content.sha; });
+  /* mutate(list): 목록을 바꾸는 함수. 저장이 충돌하면 최신 목록을 다시 받아 한 번 더 적용해요. */
+  function saveJson(message, mutate) {
+    function put(list, sha) {
+      var body = { message: message, branch: BRANCH, content: b64encUtf8(JSON.stringify({ works: list }, null, 2) + '\n') };
+      if (sha) body.sha = sha;
+      return api('PUT', 'contents/' + JSON_PATH, body);
+    }
+    var next = works.slice(); mutate(next);
+    return put(next, jsonSha).then(function (r) {
+      if (r.ok) return r.json().then(function (j) { works = next; jsonSha = j.content.sha; });
+      if (r.status !== 409 && r.status !== 422) return r.json().then(function (e) { throw new Error('저장 실패: ' + (e.message || r.status)); });
+      return fetchRemote().then(function (d) {
+        var fresh = d.works.slice(); mutate(fresh);
+        return put(fresh, d.sha).then(function (r2) {
+          if (!r2.ok) return r2.json().then(function (e) { throw new Error('저장 실패: ' + (e.message || r2.status) + ' · 새로고침 후 다시 시도해 주세요.'); });
+          return r2.json().then(function (j) { works = fresh; jsonSha = j.content.sha; });
+        });
+      });
     });
   }
 
@@ -108,9 +123,21 @@
     });
   }
 
+  function readAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onload = function () { resolve(String(fr.result).split(',')[1]); };
+      fr.onerror = function () { reject(new Error('파일을 읽지 못했어요.')); };
+      fr.readAsDataURL(file);
+    });
+  }
+  function isSvg(file) { return file.type === 'image/svg+xml' || /\.svg$/i.test(file.name); }
   function uploadImage(file) {
-    var path = 'assets/works/' + Date.now() + '.jpg';
-    return resizeToJpegBase64(file).then(function (b64) {
+    var svg = isSvg(file);
+    var path = 'assets/works/' + Date.now() + (svg ? '.svg' : '.jpg');
+    if (svg) lastImageSize = null;
+    /* SVG는 벡터 그대로 저장해서 확대해도 선명해요. 나머지는 고화질 JPG로 저장해요. */
+    return (svg ? readAsBase64(file) : resizeToJpegBase64(file)).then(function (b64) {
       return api('PUT', 'contents/' + path, { message: 'Add work image', branch: BRANCH, content: b64 });
     }).then(function (r) {
       if (!r.ok) return r.json().then(function (e) { throw new Error('이미지 업로드 실패: ' + (e.message || r.status)); });
@@ -132,7 +159,7 @@
   function tileHTML(w, idx) {
     var img = w.image
       ? '<img src="' + esc(imgSrc(w.image)) + '" alt="' + esc(w.title) + '" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">'
-      : '<span style="display:flex;flex-direction:column;align-items:center;gap:8px">' + "<svg width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#C8C8C8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' role='img' aria-label='작업 이미지 자리'><rect x='3' y='4' width='18' height='16' rx='2'></rect><circle cx='9' cy='10' r='1.8'></circle><path d='M21 16.5 15.5 11 6 20'></path></svg>" + '<span style="font-size:10px;letter-spacing:0.04em;color:#BDBDBD">1200 × 1500px</span></span>';
+      : '<span style="display:flex;flex-direction:column;align-items:center;gap:8px">' + "<svg width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#C8C8C8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' role='img' aria-label='작업 이미지 자리'><rect x='3' y='4' width='18' height='16' rx='2'></rect><circle cx='9' cy='10' r='1.8'></circle><path d='M21 16.5 15.5 11 6 20'></path></svg>" + '<span style="font-size:10px;letter-spacing:0.04em;color:#BDBDBD">2400 × 3000px</span></span>';
     var admin = isAdmin
       ? '<div class="work-admin"><button type="button" data-act="left" data-i="' + idx + '" aria-label="앞으로">&larr;</button>' +
         '<button type="button" data-act="right" data-i="' + idx + '" aria-label="뒤로">&rarr;</button>' +
@@ -416,7 +443,7 @@
     form.innerHTML =
       '<form class="jj-form" novalidate>' +
       '<h2 class="jj-form-title">작품 추가</h2>' +
-      '<label>이미지 <span style="font-size:11px;color:#8A8A8A">권장 크기 1200 × 1500px · 다른 비율은 가운데 기준으로 잘려 보여요</span><input type="file" name="image" accept="image/*"></label>' +
+      '<label>이미지 <span style="font-size:11px;color:#8A8A8A">권장 크기 2400 × 3000px (최소 1200 × 1500px) · JPG·PNG·SVG · 다른 비율은 가운데 기준으로 잘려 보여요</span><input type="file" name="image" accept="image/*,.svg"></label>' +
       '<label>제목 <input type="text" name="title" required></label>' +
       '<label>연도 <input type="text" name="year" placeholder="2026"></label>' +
       '<label>설명 <textarea name="description" rows="6"></textarea></label>' +
@@ -459,8 +486,11 @@
     var oldImage = editing >= 0 ? works[editing].image : null;
     (file ? uploadImage(file) : Promise.resolve(oldImage)).then(function (path) {
       var item = { id: editing >= 0 ? works[editing].id : String(Date.now()), title: title, year: f.year.value.trim(), image: path, description: f.description.value.trim() };
-      if (editing >= 0) works[editing] = item; else works.unshift(item);
-      return saveJson((editing >= 0 ? 'Update work: ' : 'Add work: ') + title).then(function () {
+      var isEdit = editing >= 0;
+      return saveJson((isEdit ? 'Update work: ' : 'Add work: ') + title, function (list) {
+        var k = list.findIndex(function (x) { return x.id === item.id; });
+        if (k >= 0) list[k] = item; else list.unshift(item);
+      }).then(function () {
         if (file && oldImage && oldImage !== path) return deleteImage(oldImage);
       });
     }).then(function () {
@@ -468,7 +498,7 @@
       page = 1;
       render();
       var small = file && lastImageSize && Math.min(lastImageSize[0], lastImageSize[1]) < 1000;
-      status(small ? '저장했어요. 다만 원본 사진이 작아서(' + lastImageSize[0] + '×' + lastImageSize[1] + 'px) 확대하면 흐릴 수 있어요. 1200×1500px 이상을 권장해요.' : '저장했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.', small);
+      status(small ? '저장했어요. 다만 원본 사진이 작아서(' + lastImageSize[0] + '×' + lastImageSize[1] + 'px) 확대하면 흐릴 수 있어요. 2400×3000px 이상을 권장해요.' : '저장했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.', small);
     }).catch(function (err) {
       st.textContent = err.message;
     }).then(function () { btn.disabled = false; });
@@ -481,20 +511,27 @@
     var msg;
     if (act === 'del') {
       if (!confirm('"' + works[i].title + '" 작품을 삭제할까요?')) return;
-      var removed = works.splice(i, 1)[0];
+      var removed = works[i];
       msg = 'Remove work: ' + removed.title;
       status('삭제하는 중이에요…');
-      saveJson(msg).then(function () { return deleteImage(removed.image); })
+      saveJson(msg, function (list) {
+        var k = list.findIndex(function (x) { return x.id === removed.id; });
+        if (k >= 0) list.splice(k, 1);
+      }).then(function () { render(); return deleteImage(removed.image); })
         .then(function () { render(); status('삭제했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.'); })
         .catch(function (err) { status(err.message, true); });
       return;
     }
     var j = act === 'left' ? i - 1 : i + 1;
     if (j < 0 || j >= works.length) return;
-    var t = works[i]; works[i] = works[j]; works[j] = t;
-    render();
+    var idA = works[i].id, idB = works[j].id;
     status('순서를 저장하는 중이에요…');
-    saveJson('Reorder works').then(function () { status('순서를 저장했어요.'); })
+    saveJson('Reorder works', function (list) {
+      var a = list.findIndex(function (x) { return x.id === idA; });
+      var b = list.findIndex(function (x) { return x.id === idB; });
+      if (a < 0 || b < 0) return;
+      var t = list[a]; list[a] = list[b]; list[b] = t;
+    }).then(function () { render(); status('순서를 저장했어요.'); })
       .catch(function (err) { status(err.message, true); });
   }
 
