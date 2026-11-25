@@ -118,7 +118,7 @@
   function tileHTML(w, idx) {
     var img = w.image
       ? '<img src="' + esc(imgSrc(w.image)) + '" alt="' + esc(w.title) + '" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">'
-      : "<svg width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#C8C8C8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' role='img' aria-label='작업 이미지 자리'><rect x='3' y='4' width='18' height='16' rx='2'></rect><circle cx='9' cy='10' r='1.8'></circle><path d='M21 16.5 15.5 11 6 20'></path></svg>";
+      : '<span style="display:flex;flex-direction:column;align-items:center;gap:8px">' + "<svg width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#C8C8C8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' role='img' aria-label='작업 이미지 자리'><rect x='3' y='4' width='18' height='16' rx='2'></rect><circle cx='9' cy='10' r='1.8'></circle><path d='M21 16.5 15.5 11 6 20'></path></svg>" + '<span style="font-size:10px;letter-spacing:0.04em;color:#BDBDBD">1200 × 1500px</span></span>';
     var admin = isAdmin
       ? '<div class="work-admin"><button type="button" data-act="left" data-i="' + idx + '" aria-label="앞으로">&larr;</button>' +
         '<button type="button" data-act="right" data-i="' + idx + '" aria-label="뒤로">&rarr;</button>' +
@@ -402,7 +402,7 @@
     form.innerHTML =
       '<form class="jj-form" novalidate>' +
       '<h2 class="jj-form-title">작품 추가</h2>' +
-      '<label>이미지 <input type="file" name="image" accept="image/*"></label>' +
+      '<label>이미지 <span style="font-size:11px;color:#8A8A8A">권장 크기 1200 × 1500px · 다른 비율은 가운데 기준으로 잘려 보여요</span><input type="file" name="image" accept="image/*"></label>' +
       '<label>제목 <input type="text" name="title" required></label>' +
       '<label>연도 <input type="text" name="year" placeholder="2026"></label>' +
       '<label>설명 <textarea name="description" rows="6"></textarea></label>' +
