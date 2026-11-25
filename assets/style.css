@@ -9,4 +9,7 @@ html{overflow-y:scroll}
 body{margin:0;background:#FFFFFF;-webkit-font-smoothing:antialiased}
 a{color:#1A1A1A;text-decoration:none}
 a:hover{color:#FF4500 !important}
+a.home-symbol .sym-grad{opacity:0}
+a.home-symbol:hover .sym-grad{opacity:1}
+a.home-symbol:hover .sym-base{opacity:0}
 img{max-width:100%}
