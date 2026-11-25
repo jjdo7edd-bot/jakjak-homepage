@@ -13,3 +13,50 @@ a.home-symbol .sym-grad{opacity:0}
 a.home-symbol:hover .sym-grad{opacity:1}
 a.home-symbol:hover .sym-base{opacity:0}
 img{max-width:100%}
+.jj-admin-link:hover{color:#E6E6E6 !important}
+.jj-login{position:relative;width:260px;max-width:100%;background:#FFFFFF;padding:28px 24px 18px;display:flex;flex-direction:column;gap:10px;font-size:12px}
+.jj-login-title{margin:0 0 4px;font-size:11px;letter-spacing:.12em;color:#8A8A8A}
+.jj-login-main,.jj-login-setup{display:flex;flex-direction:column;gap:8px}
+.jj-login-main[hidden],.jj-login-setup[hidden],.jj-login input[hidden],.jj-login-forgot[hidden]{display:none}
+.jj-login input{font:inherit;font-size:13px;padding:9px 10px;border:1px solid #DDDDDD;color:#1A1A1A;outline:none}
+.jj-login input:focus{border-color:#FF4500}
+.jj-login-note{margin:0;color:#555555}
+.jj-login-ok{font:inherit;font-size:12px;padding:9px 10px;border:1px solid #1A1A1A;background:#1A1A1A;color:#FFFFFF;cursor:pointer}
+.jj-login-ok:hover{background:#FF4500;border-color:#FF4500}
+.jj-login-ok:disabled{opacity:.5}
+.jj-login-status{margin:0;min-height:1em;color:#C0392B;font-size:11px}
+.jj-login-forgot{align-self:flex-start;font:inherit;font-size:11px;padding:4px 0;border:0;background:none;color:#8A8A8A;cursor:pointer;text-decoration:underline}
+.work-cell{display:flex;flex-direction:column;gap:8px}
+.work-admin{display:flex;gap:4px;flex-wrap:wrap}
+.work-admin button,.jj-admin-bar button,.jj-form button{font:inherit;font-size:11px;padding:6px 10px;border:1px solid #CCCCCC;background:#FFFFFF;color:#1A1A1A;cursor:pointer}
+.work-admin button:hover,.jj-admin-bar button:hover,.jj-form button:hover{border-color:#FF4500;color:#FF4500}
+.work-add{font:inherit;font-size:13px;aspect-ratio:4 / 5;border:1px dashed #FF4500;background:#FFFFFF;color:#FF4500;cursor:pointer}
+.jj-admin-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 40px;padding:14px 16px;border:1px solid #FF4500;font-size:12px}
+.jj-admin-bar strong{color:#FF4500;font-weight:700}
+.jj-admin-bar input{font:inherit;font-size:12px;padding:6px 8px;border:1px solid #CCCCCC;width:240px;max-width:100%}
+.jj-status{color:#555555}
+.jj-modal{font-family:KakaoSmall,sans-serif;color:#1A1A1A;position:fixed;inset:0;z-index:100;background:rgba(26,26,26,.45);display:flex;align-items:center;justify-content:center;padding:24px}
+.jj-modal[hidden]{display:none}
+.jj-modal-box{position:relative;width:15cm;max-width:100%;height:10cm;max-height:calc(100vh - 48px);background:#FFFFFF;display:flex;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.jj-modal-close{position:absolute;top:6px;right:6px;width:36px;height:36px;border:0;background:transparent;font-size:22px;line-height:1;color:#555555;cursor:pointer}
+.jj-modal-close:hover{color:#FF4500}
+.jj-modal-img{flex:0 0 50%;box-sizing:border-box;padding:35px;display:flex}
+.jj-modal-img-inner{flex:1 1 auto;min-width:0;background:rgba(237,230,218,.5);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.jj-modal-img-inner img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s ease;cursor:zoom-in}
+.jj-modal-text{flex:1 1 auto;min-width:0;padding:40px 28px 28px;display:flex;flex-direction:column;gap:6px;overflow-y:auto}
+.jj-modal-text h2{margin:0;font-size:14px;font-weight:400;color:#FF4500}
+.jj-modal-year{margin:0 0 14px;font-size:11px;color:#8A8A8A}
+.jj-modal-body{font-size:11px;font-weight:300;line-height:1.8;color:#767676;white-space:pre-line}
+@media (max-width:640px){.jj-modal-box{flex-direction:column;height:auto;max-height:calc(100vh - 48px)}.jj-modal-img{flex:0 0 auto;aspect-ratio:4 / 3;padding:32px 32px 0}.jj-modal-text{padding:24px 20px}}
+.jj-form{width:420px;max-width:100%;max-height:calc(100vh - 48px);overflow-y:auto;background:#FFFFFF;padding:28px;display:flex;flex-direction:column;gap:14px;font-size:12px}
+.jj-form h2{margin:0 0 4px;font-size:15px;font-weight:400;color:#FF4500}
+.jj-form label{display:flex;flex-direction:column;gap:6px;color:#555555}
+.jj-form input[type=text],.jj-form textarea{font:inherit;font-size:13px;padding:8px 10px;border:1px solid #CCCCCC;color:#1A1A1A}
+.jj-form-actions{display:flex;justify-content:flex-end;gap:8px}
+.jj-submit{border-color:#FF4500 !important;background:#FF4500 !important;color:#FFFFFF !important}
+.jj-submit:disabled{opacity:.5}
+.jj-form-status{margin:0;color:#555555;min-height:1em}
+.work .work-hover{opacity:0}
+.work:hover .work-img{opacity:.25}
+.work:hover .work-hover{opacity:1}
+@media (max-width:640px){.gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}}
