@@ -69,7 +69,5 @@ img{max-width:100%}
 .jj-form .jj-slot-del{flex-direction:row;align-items:center;gap:4px;white-space:nowrap;color:#8A8A8A}
 .jj-slot-del[hidden]{display:none}
 .jj-form-status{margin:0;color:#555555;min-height:1em}
-.work .work-hover{opacity:0}
-.work:hover .work-img{opacity:.25}
-.work:hover .work-hover{opacity:1}
+.work:hover .work-img{opacity:.8}
 @media (max-width:640px){.gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}}

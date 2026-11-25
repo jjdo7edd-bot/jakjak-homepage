@@ -176,7 +176,6 @@
     return '<div class="work-cell"><a href="#" class="work" data-i="' + idx + '" style="display:flex;flex-direction:column;gap:10px">' +
       '<div style="position:relative;aspect-ratio:4 / 5">' +
       '<div class="work-img" style="position:absolute;inset:0;background:rgba(237, 230, 218, 0.5);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity 0.25s">' + img + '</div>' +
-      '<div class="work-hover" aria-hidden="true" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;color:#FF4500;font-size:14px;font-weight:400;transition:opacity 0.25s">' + esc(w.title) + '</div>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span style="font-weight:700">' + esc(w.title) + '</span><span style="color:#8A8A8A;font-size:11px">' + esc(w.year) + '</span></div>' +
       '</a>' + admin + '</div>';
@@ -308,7 +307,7 @@
     e.preventDefault();
     var i = a.getAttribute('data-i');
     if (i == null) {
-      openWork({ title: a.querySelector('.work-hover') ? a.querySelector('.work-hover').textContent : '', year: '', description: '' });
+      openWork({ title: a.querySelector('span') ? a.querySelector('span').textContent : '', year: '', description: '' });
       return;
     }
     openWork(works[parseInt(i, 10)]);
