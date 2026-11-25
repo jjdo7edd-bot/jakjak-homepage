@@ -5,6 +5,7 @@
 @font-face{font-family:'KakaoBig';src:url(fonts/KakaoBigSans-Bold.woff2) format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'KakaoBig';src:url(fonts/KakaoBigSans-ExtraBold.woff2) format('woff2');font-weight:800;font-display:swap}
 *{box-sizing:border-box}
+html{overflow-y:scroll}
 body{margin:0;background:#FFFFFF;-webkit-font-smoothing:antialiased}
 a{color:#1A1A1A;text-decoration:none}
 a:hover{color:#FF4500 !important}
