@@ -74,20 +74,34 @@
     });
   }
 
+  var lastImageSize = null;
   function resizeToJpegBase64(file) {
     return new Promise(function (resolve, reject) {
       var img = new Image();
       var url = URL.createObjectURL(file);
       img.onload = function () {
-        var max = 1600, w = img.naturalWidth, h = img.naturalHeight;
+        var max = 2400, w = img.naturalWidth, h = img.naturalHeight;
+        lastImageSize = [w, h];
         var k = Math.min(1, max / Math.max(w, h));
+        var tw = Math.round(w * k), th = Math.round(h * k);
+        /* 여러 단계로 나눠 줄여서 글자·선이 뭉개지지 않게 */
+        var src = img, sw = w, sh = h;
+        while (sw / 2 > tw && sh / 2 > th) {
+          var step = document.createElement('canvas');
+          step.width = Math.round(sw / 2); step.height = Math.round(sh / 2);
+          var sc = step.getContext('2d');
+          sc.imageSmoothingEnabled = true; sc.imageSmoothingQuality = 'high';
+          sc.drawImage(src, 0, 0, step.width, step.height);
+          src = step; sw = step.width; sh = step.height;
+        }
         var c = document.createElement('canvas');
-        c.width = Math.round(w * k); c.height = Math.round(h * k);
+        c.width = tw; c.height = th;
         var ctx = c.getContext('2d');
-        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(img, 0, 0, c.width, c.height);
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, tw, th);
+        ctx.drawImage(src, 0, 0, tw, th);
         URL.revokeObjectURL(url);
-        resolve(c.toDataURL('image/jpeg', 0.88).split(',')[1]);
+        resolve(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
       };
       img.onerror = function () { reject(new Error('이미지를 읽지 못했어요.')); };
       img.src = url;
@@ -202,7 +216,7 @@
     var x = ((e.clientX - r.left) / r.width) * 100;
     var y = ((e.clientY - r.top) / r.height) * 100;
     img.style.transformOrigin = x + '% ' + y + '%';
-    img.style.transform = 'scale(1.5)';
+    img.style.transform = 'scale(2)';
   });
   zoomBox.addEventListener('mouseleave', function () {
     var img = zoomBox.querySelector('img');
@@ -453,7 +467,8 @@
       form.hidden = true;
       page = 1;
       render();
-      status('저장했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.');
+      var small = file && lastImageSize && Math.min(lastImageSize[0], lastImageSize[1]) < 1000;
+      status(small ? '저장했어요. 다만 원본 사진이 작아서(' + lastImageSize[0] + '×' + lastImageSize[1] + 'px) 확대하면 흐릴 수 있어요. 1200×1500px 이상을 권장해요.' : '저장했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.', small);
     }).catch(function (err) {
       st.textContent = err.message;
     }).then(function () { btn.disabled = false; });
