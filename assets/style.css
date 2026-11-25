@@ -1,0 +1,11 @@
+@font-face{font-family:'KakaoSmall';src:url(fonts/KakaoSmallSans-Light.woff2) format('woff2');font-weight:300;font-display:swap}
+@font-face{font-family:'KakaoSmall';src:url(fonts/KakaoSmallSans-Regular.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'KakaoSmall';src:url(fonts/KakaoSmallSans-Bold.woff2) format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'KakaoBig';src:url(fonts/KakaoBigSans-Regular.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'KakaoBig';src:url(fonts/KakaoBigSans-Bold.woff2) format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'KakaoBig';src:url(fonts/KakaoBigSans-ExtraBold.woff2) format('woff2');font-weight:800;font-display:swap}
+*{box-sizing:border-box}
+body{margin:0;background:#FFFFFF;-webkit-font-smoothing:antialiased}
+a{color:#1A1A1A;text-decoration:none}
+a:hover{color:#FF4500 !important}
+img{max-width:100%}
