@@ -1,6 +1,19 @@
 {
   "works": [
     {
+      "id": "1795661820626",
+      "title": "You're already doing great",
+      "year": "cover 2026",
+      "image": "assets/works/1795661813074-a4vb.jpg",
+      "images": [
+        "assets/works/1795661813074-a4vb.jpg",
+        "assets/works/1795661814853-j97h.jpg",
+        "assets/works/1795661817494-639h.jpg"
+      ],
+      "fit": "contain",
+      "description": "수능을 앞둔 2008년생을\n응원하기 위해 만든 앨범 커버."
+    },
+    {
       "id": "1795615339718",
       "title": "북어웍스",
       "year": "Branding 2026",
