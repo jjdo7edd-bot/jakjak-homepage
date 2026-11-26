@@ -164,8 +164,9 @@
 
   /* ---------- render ---------- */
   function tileHTML(w, idx) {
+    var whole = w.fit === 'contain';
     var img = w.image
-      ? '<img src="' + esc(imgSrc(w.image)) + '" alt="' + esc(w.title) + '" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">'
+      ? '<img src="' + esc(imgSrc(w.image)) + '" alt="' + esc(w.title) + '" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:' + (whole ? 'contain' : 'cover') + ';display:block">'
       : '<span style="display:flex;flex-direction:column;align-items:center;gap:8px">' + "<svg width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#C8C8C8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' role='img' aria-label='작업 이미지 자리'><rect x='3' y='4' width='18' height='16' rx='2'></rect><circle cx='9' cy='10' r='1.8'></circle><path d='M21 16.5 15.5 11 6 20'></path></svg>" + '<span style="font-size:10px;letter-spacing:0.04em;color:#BDBDBD">2400 × 3000px</span></span>';
     var admin = isAdmin
       ? '<div class="work-admin"><button type="button" data-act="left" data-i="' + idx + '" aria-label="앞으로">&larr;</button>' +
@@ -175,7 +176,7 @@
       : '';
     return '<div class="work-cell"><a href="#" class="work" data-i="' + idx + '" style="display:flex;flex-direction:column;gap:10px">' +
       '<div style="position:relative;aspect-ratio:4 / 5">' +
-      '<div class="work-img" style="position:absolute;inset:0;background:rgba(237, 230, 218, 0.5);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity 0.25s">' + img + '</div>' +
+      '<div class="work-img" style="position:absolute;inset:0;background:' + (whole && w.image ? '#FFFFFF' : 'rgba(237, 230, 218, 0.5)') + ';display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity 0.25s">' + img + '</div>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span style="font-weight:700">' + esc(w.title) + '</span><span style="color:#8A8A8A;font-size:11px">' + esc(w.year) + '</span></div>' +
       '</a>' + admin + '</div>';
@@ -235,7 +236,7 @@
     cur.i = Math.max(0, Math.min(cur.imgs.length - 1, i));
     var n = cur.imgs.length;
     box.innerHTML =
-      '<div class="jj-modal-img-inner"><img src="' + esc(imgSrc(cur.imgs[cur.i])) + '" alt="' + esc(cur.title) + (n > 1 ? ' (' + (cur.i + 1) + '/' + n + ')' : '') + '"></div>' +
+      '<div class="jj-modal-img-inner' + (cur.whole ? ' is-whole' : '') + '"><img src="' + esc(imgSrc(cur.imgs[cur.i])) + '" alt="' + esc(cur.title) + (n > 1 ? ' (' + (cur.i + 1) + '/' + n + ')' : '') + '"></div>' +
       (n > 1 && cur.i > 0 ? ARROW('prev') : '') +
       (n > 1 && cur.i < n - 1 ? ARROW('next') : '');
     /* 다음 사진 미리 불러오기 */
@@ -243,7 +244,7 @@
   }
   function openWork(w) {
     lastFocus = document.activeElement;
-    cur = { imgs: imagesOf(w), i: 0, title: w.title || '' };
+    cur = { imgs: imagesOf(w), i: 0, title: w.title || '', whole: w.fit === 'contain' };
     showSlide(0);
     modal.querySelector('h2').textContent = w.title || '';
     modal.querySelector('.jj-modal-year').textContent = w.year || '';
@@ -259,7 +260,10 @@
   }
   /* 팝업 이미지 호버 확대 (2배, 마우스 위치 기준) */
   var zoomBox = modal.querySelector('.jj-modal-img');
+  /* 터치 화면(모바일)에서는 확대하지 않아요 */
+  var canHover = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   zoomBox.addEventListener('mousemove', function (e) {
+    if (!canHover) return;
     var inner = e.target.closest('.jj-modal-img-inner');
     var img = inner && inner.querySelector('img');
     if (!img) return;
@@ -478,13 +482,16 @@
     form.innerHTML =
       '<form class="jj-form" novalidate>' +
       '<h2 class="jj-form-title">작품 추가</h2>' +
-      '<div class="jj-form-images"><span>사진 (최대 4장 · 1번이 대표 사진)</span><span style="font-size:11px;color:#8A8A8A">권장 크기 2400 × 3000px (최소 1200 × 1500px) · JPG·PNG·SVG · 다른 비율은 가운데 기준으로 잘려 보여요</span>' +
+      '<div class="jj-form-images"><span>사진 (최대 4장 · 1번이 대표 사진)</span><span style="font-size:11px;color:#8A8A8A">권장 크기 2400 × 3000px (최소 1200 × 1500px) · JPG·PNG·SVG</span>' +
       [1, 2, 3, 4].map(function (n) {
         return '<div class="jj-slot" data-slot="' + (n - 1) + '"><span class="jj-slot-no">' + n + '</span><span class="jj-slot-thumb"></span>' +
           '<input type="file" name="image' + n + '" accept="image/*,.svg" aria-label="사진 ' + n + '">' +
           '<label class="jj-slot-del"><input type="checkbox" name="del' + n + '"> 지우기</label></div>';
       }).join('') + '</div>' +
       '<label>제목 <input type="text" name="title" required></label>' +
+      '<div class="jj-form-fit"><span>목록 썸네일</span>' +
+        '<label><input type="radio" name="fit" value="cover" checked> 꽉 채우기 <small>(세로형 · 4:5가 아니면 가장자리가 잘려요)</small></label>' +
+        '<label><input type="radio" name="fit" value="contain"> 전체 보기 <small>(가로형 · 잘리지 않고 남는 곳은 흰색)</small></label></div>' +
       '<label>연도 <input type="text" name="year" placeholder="2026"></label>' +
       '<label>설명 <textarea name="description" rows="6"></textarea></label>' +
       '<div class="jj-form-actions"><button type="button" class="jj-cancel">취소</button><button type="submit" class="jj-submit">저장</button></div>' +
@@ -513,6 +520,7 @@
       f.year.value = works[i].year || '';
       f.description.value = works[i].description || '';
     }
+    f.querySelector('input[name=fit][value=' + (i >= 0 && works[i].fit === 'contain' ? 'contain' : 'cover') + ']').checked = true;
     form.hidden = false;
     f.title.focus();
   }
@@ -553,7 +561,7 @@
     });
     chain.then(function () {
       var paths = result.filter(Boolean);
-      var item = { id: editing >= 0 ? works[editing].id : String(Date.now()), title: title, year: f.year.value.trim(), image: paths[0], images: paths, description: f.description.value.trim() };
+      var item = { id: editing >= 0 ? works[editing].id : String(Date.now()), title: title, year: f.year.value.trim(), image: paths[0], images: paths, fit: f.querySelector('input[name=fit]:checked').value, description: f.description.value.trim() };
       var isEdit = editing >= 0;
       st.textContent = '저장하는 중이에요…';
       return saveJson((isEdit ? 'Update work: ' : 'Add work: ') + title, function (list) {
