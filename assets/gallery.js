@@ -90,38 +90,48 @@
   }
 
   var lastImageSize = null;
-  function resizeToJpegBase64(file) {
+  /* 여러 단계로 나눠 줄여서 글자·선이 뭉개지지 않게 */
+  function scaleToJpeg(img, max, quality) {
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var k = Math.min(1, max / Math.max(w, h));
+    var tw = Math.round(w * k), th = Math.round(h * k);
+    var src = img, sw = w, sh = h;
+    while (sw / 2 > tw && sh / 2 > th) {
+      var step = document.createElement('canvas');
+      step.width = Math.round(sw / 2); step.height = Math.round(sh / 2);
+      var sc = step.getContext('2d');
+      sc.imageSmoothingEnabled = true; sc.imageSmoothingQuality = 'high';
+      sc.drawImage(src, 0, 0, step.width, step.height);
+      src = step; sw = step.width; sh = step.height;
+    }
+    var c = document.createElement('canvas');
+    c.width = tw; c.height = th;
+    var ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, tw, th);
+    ctx.drawImage(src, 0, 0, tw, th);
+    return c.toDataURL('image/jpeg', quality).split(',')[1];
+  }
+  function loadImage(url, cors) {
     return new Promise(function (resolve, reject) {
       var img = new Image();
-      var url = URL.createObjectURL(file);
-      img.onload = function () {
-        var max = 2400, w = img.naturalWidth, h = img.naturalHeight;
-        lastImageSize = [w, h];
-        var k = Math.min(1, max / Math.max(w, h));
-        var tw = Math.round(w * k), th = Math.round(h * k);
-        /* 여러 단계로 나눠 줄여서 글자·선이 뭉개지지 않게 */
-        var src = img, sw = w, sh = h;
-        while (sw / 2 > tw && sh / 2 > th) {
-          var step = document.createElement('canvas');
-          step.width = Math.round(sw / 2); step.height = Math.round(sh / 2);
-          var sc = step.getContext('2d');
-          sc.imageSmoothingEnabled = true; sc.imageSmoothingQuality = 'high';
-          sc.drawImage(src, 0, 0, step.width, step.height);
-          src = step; sw = step.width; sh = step.height;
-        }
-        var c = document.createElement('canvas');
-        c.width = tw; c.height = th;
-        var ctx = c.getContext('2d');
-        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, tw, th);
-        ctx.drawImage(src, 0, 0, tw, th);
-        URL.revokeObjectURL(url);
-        resolve(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
-      };
+      if (cors) img.crossOrigin = 'anonymous';
+      img.onload = function () { resolve(img); };
       img.onerror = function () { reject(new Error('이미지를 읽지 못했어요.')); };
       img.src = url;
     });
   }
+  /* 원본(최대 2400px)과 목록용 작은 사진(최대 960px)을 함께 만들어요 */
+  function makeJpegs(file) {
+    var url = URL.createObjectURL(file);
+    return loadImage(url).then(function (img) {
+      lastImageSize = [img.naturalWidth, img.naturalHeight];
+      var out = { full: scaleToJpeg(img, 2400, 0.92), thumb: scaleToJpeg(img, THUMB_MAX, 0.85) };
+      URL.revokeObjectURL(url);
+      return out;
+    }, function (err) { URL.revokeObjectURL(url); throw err; });
+  }
+  var THUMB_MAX = 960;
 
   function readAsBase64(file) {
     return new Promise(function (resolve, reject) {
@@ -132,17 +142,33 @@
     });
   }
   function isSvg(file) { return file.type === 'image/svg+xml' || /\.svg$/i.test(file.name); }
-  function uploadImage(file) {
-    var svg = isSvg(file);
-    var path = 'assets/works/' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + (svg ? '.svg' : '.jpg');
-    if (svg) lastImageSize = null;
-    /* SVG는 벡터 그대로 저장해서 확대해도 선명해요. 나머지는 고화질 JPG로 저장해요. */
-    return (svg ? readAsBase64(file) : resizeToJpegBase64(file)).then(function (b64) {
-      return api('PUT', 'contents/' + path, { message: 'Add work image', branch: BRANCH, content: b64 });
-    }).then(function (r) {
+  function putFile(path, b64, message) {
+    return api('PUT', 'contents/' + path, { message: message, branch: BRANCH, content: b64 }).then(function (r) {
       if (!r.ok) return r.json().then(function (e) { throw new Error('이미지 업로드 실패: ' + (e.message || r.status)); });
       return path;
     });
+  }
+  /* 결과: { path: 원본 경로, thumbB64: 목록용 작은 사진 데이터(SVG는 없음) } */
+  function uploadImage(file) {
+    var svg = isSvg(file);
+    var base = 'assets/works/' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    /* SVG는 벡터 그대로 저장해서 확대해도 선명해요. 나머지는 고화질 JPG로 저장해요. */
+    if (svg) {
+      lastImageSize = null;
+      return readAsBase64(file).then(function (b64) { return putFile(base + '.svg', b64, 'Add work image'); })
+        .then(function (path) { return { path: path, thumbB64: null }; });
+    }
+    return makeJpegs(file).then(function (j) {
+      return putFile(base + '.jpg', j.full, 'Add work image').then(function (path) { return { path: path, thumbB64: j.thumb }; });
+    });
+  }
+  /* 이미 올라가 있는 대표 사진으로 목록용 사진을 만들어요 (예전에 올린 작품용). 실패해도 저장은 계속돼요. */
+  function thumbFromExisting(path) {
+    if (!path || /\.svg$/i.test(path) || /^https?:/.test(path)) return Promise.resolve(null);
+    var url = 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + path + '?t=' + Date.now();
+    return loadImage(url, true).then(function (img) {
+      return putFile(path.replace(/\.jpe?g$/i, '') + '-t.jpg', scaleToJpeg(img, THUMB_MAX, 0.85), 'Add work thumbnail');
+    }).catch(function () { return null; });
   }
 
   function deleteImage(path) {
@@ -166,7 +192,7 @@
   function tileHTML(w, idx) {
     var whole = w.fit === 'contain';
     var img = w.image
-      ? '<img src="' + esc(imgSrc(w.image)) + '" alt="' + esc(w.title) + '" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:' + (whole ? 'contain' : 'cover') + ';display:block">'
+      ? '<img src="' + esc(imgSrc(w.thumb || w.image)) + '" alt="' + esc(w.title) + '" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:' + (whole ? 'contain' : 'cover') + ';display:block">'
       : '<span style="display:flex;flex-direction:column;align-items:center;gap:8px">' + "<svg width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#C8C8C8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' role='img' aria-label='작업 이미지 자리'><rect x='3' y='4' width='18' height='16' rx='2'></rect><circle cx='9' cy='10' r='1.8'></circle><path d='M21 16.5 15.5 11 6 20'></path></svg>" + '<span style="font-size:10px;letter-spacing:0.04em;color:#BDBDBD">2400 × 3000px</span></span>';
     var admin = isAdmin
       ? '<div class="work-admin"><button type="button" data-act="left" data-i="' + idx + '" aria-label="앞으로">&larr;</button>' +
@@ -546,11 +572,15 @@
     /* 사진을 한 장씩 차례로 올려요 */
     var chain = Promise.resolve();
     var result = [];
+    var newThumbs = {};
+    var oldCover = olds[0] || null, oldThumb = editing >= 0 ? (works[editing].thumb || null) : null;
     slots.forEach(function (x, k) {
       chain = chain.then(function () {
         if (x.file) {
           st.textContent = '사진 올리는 중… (' + (done + 1) + '/' + total + ')';
-          return uploadImage(x.file).then(function (path) {
+          return uploadImage(x.file).then(function (up) {
+            var path = up.path;
+            if (up.thumbB64) newThumbs[path] = up.thumbB64;
             done++;
             if (lastImageSize && Math.min(lastImageSize[0], lastImageSize[1]) < 1000) small.push((k + 1) + '번(' + lastImageSize[0] + '×' + lastImageSize[1] + 'px)');
             result[k] = path;
@@ -559,9 +589,19 @@
         result[k] = x.del ? null : x.old;
       });
     });
+    var paths, thumb = null;
     chain.then(function () {
-      var paths = result.filter(Boolean);
+      paths = result.filter(Boolean);
+      /* 목록에 보이는 작은 사진: 대표 사진이 그대로면 예전 것을 쓰고, 바뀌었으면 새로 만들어요 */
+      var cover = paths[0];
+      if (cover === oldCover && oldThumb) return oldThumb;
+      st.textContent = '목록용 사진 만드는 중…';
+      if (newThumbs[cover]) return putFile(cover.replace(/\.jpg$/i, '') + '-t.jpg', newThumbs[cover], 'Add work thumbnail').catch(function () { return null; });
+      return thumbFromExisting(cover);
+    }).then(function (t) {
+      thumb = t || null;
       var item = { id: editing >= 0 ? works[editing].id : String(Date.now()), title: title, year: f.year.value.trim(), image: paths[0], images: paths, fit: f.querySelector('input[name=fit]:checked').value, description: f.description.value.trim() };
+      if (thumb) item.thumb = thumb;
       var isEdit = editing >= 0;
       st.textContent = '저장하는 중이에요…';
       return saveJson((isEdit ? 'Update work: ' : 'Add work: ') + title, function (list) {
@@ -570,6 +610,7 @@
       }).then(function () {
         /* 바뀌거나 지운 예전 사진 정리 */
         var gone = olds.filter(function (o) { return paths.indexOf(o) < 0; });
+        if (oldThumb && oldThumb !== thumb) gone.push(oldThumb);
         return gone.reduce(function (p, o) { return p.then(function () { return deleteImage(o); }); }, Promise.resolve());
       });
     }).then(function () {
@@ -597,7 +638,7 @@
         if (k >= 0) list.splice(k, 1);
       }).then(function () {
         render();
-        return imagesOf(removed).reduce(function (p, o) { return p.then(function () { return deleteImage(o); }); }, Promise.resolve());
+        return imagesOf(removed).concat(removed.thumb ? [removed.thumb] : []).reduce(function (p, o) { return p.then(function () { return deleteImage(o); }); }, Promise.resolve());
       })
         .then(function () { render(); status('삭제했어요. 실제 홈페이지에는 1~2분 뒤에 반영돼요.'); })
         .catch(function (err) { status(err.message, true); });
