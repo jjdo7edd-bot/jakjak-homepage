@@ -78,14 +78,14 @@ img{max-width:100%}
 @media (max-width:640px){.gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}}
 
 .intro{width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#FFFFFF}
-.intro-link{position:relative;display:block;width:96px;height:83.2px}
+.intro-link{position:relative;display:block;width:124px;height:107.5px}
 .intro-link svg{display:block}
 .intro-sym-grad{position:absolute;left:0;top:0;opacity:0;transition:opacity .35s ease}
 .intro-sym-base{transition:opacity .35s ease}
-.intro-word{position:absolute;left:50%;top:calc(100% + 44px);transform:translateX(-50%);opacity:0;clip-path:inset(0 50% 0 50%);transition:clip-path .7s cubic-bezier(.2,.7,.2,1),opacity .3s ease}
+.intro-word{position:absolute;left:50%;top:calc(100% + 48px);transform:translateX(-50%);opacity:0;clip-path:inset(0 50% 0 50%);transition:clip-path .7s cubic-bezier(.2,.7,.2,1),opacity .3s ease}
 .intro-link:hover .intro-sym-base,.intro-link:focus-visible .intro-sym-base{opacity:0}
 .intro-link:hover .intro-sym-grad,.intro-link:focus-visible .intro-sym-grad{opacity:1}
 .intro-link:hover .intro-word,.intro-link:focus-visible .intro-word{opacity:1;clip-path:inset(0 0 0 0)}
 .intro-link:focus-visible{outline:none}
 @media (hover:none){.intro-word{opacity:1;clip-path:inset(0 0 0 0)}}
-@media (max-width:520px){.intro-word{width:300px;height:auto}}
+@media (max-width:520px){.intro-word{width:280px;height:auto}}
