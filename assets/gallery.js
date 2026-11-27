@@ -142,6 +142,8 @@
     });
   }
   function isSvg(file) { return file.type === 'image/svg+xml' || /\.svg$/i.test(file.name); }
+  function isGif(file) { return file.type === 'image/gif' || /\.gif$/i.test(file.name); }
+  var GIF_MAX_MB = 20;
   function putFile(path, b64, message) {
     return api('PUT', 'contents/' + path, { message: message, branch: BRANCH, content: b64 }).then(function (r) {
       if (!r.ok) return r.json().then(function (e) { throw new Error('이미지 업로드 실패: ' + (e.message || r.status)); });
@@ -150,12 +152,12 @@
   }
   /* 결과: { path: 원본 경로, thumbB64: 목록용 작은 사진 데이터(SVG는 없음) } */
   function uploadImage(file) {
-    var svg = isSvg(file);
+    var svg = isSvg(file), gif = isGif(file);
     var base = 'assets/works/' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-    /* SVG는 벡터 그대로 저장해서 확대해도 선명해요. 나머지는 고화질 JPG로 저장해요. */
-    if (svg) {
+    /* SVG는 벡터 그대로, GIF는 움직임이 살아 있도록 원본 그대로 저장해요. 나머지는 고화질 JPG로 저장해요. */
+    if (svg || gif) {
       lastImageSize = null;
-      return readAsBase64(file).then(function (b64) { return putFile(base + '.svg', b64, 'Add work image'); })
+      return readAsBase64(file).then(function (b64) { return putFile(base + (svg ? '.svg' : '.gif'), b64, 'Add work image'); })
         .then(function (path) { return { path: path, thumbB64: null }; });
     }
     return makeJpegs(file).then(function (j) {
@@ -164,7 +166,7 @@
   }
   /* 이미 올라가 있는 대표 사진으로 목록용 사진을 만들어요 (예전에 올린 작품용). 실패해도 저장은 계속돼요. */
   function thumbFromExisting(path) {
-    if (!path || /\.svg$/i.test(path) || /^https?:/.test(path)) return Promise.resolve(null);
+    if (!path || /\.(svg|gif)$/i.test(path) || /^https?:/.test(path)) return Promise.resolve(null);
     var url = 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + path + '?t=' + Date.now();
     return loadImage(url, true).then(function (img) {
       return putFile(path.replace(/\.jpe?g$/i, '') + '-t.jpg', scaleToJpeg(img, THUMB_MAX, 0.85), 'Add work thumbnail');
@@ -202,7 +204,7 @@
       : '';
     return '<div class="work-cell"><a href="#" class="work" data-i="' + idx + '" style="display:flex;flex-direction:column;gap:10px">' +
       '<div style="position:relative;aspect-ratio:4 / 5">' +
-      '<div class="work-img" style="position:absolute;inset:0;background:' + (whole && w.image ? '#FFFFFF' : 'rgba(237, 230, 218, 0.5)') + ';display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity 0.25s">' + img + '</div>' +
+      '<div class="work-img" style="position:absolute;inset:0;background:' + (whole && w.image ? '#FFFFFF' : 'rgba(237, 230, 218, 0.5)') + ';display:flex;align-items:center;justify-content:center;overflow:hidden;transition:filter 0.25s">' + img + '</div>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span style="font-weight:700">' + esc(w.title) + '</span><span style="color:#8A8A8A;font-size:11px">' + esc(w.year) + '</span></div>' +
       '</a>' + admin + '</div>';
@@ -508,10 +510,10 @@
     form.innerHTML =
       '<form class="jj-form" novalidate>' +
       '<h2 class="jj-form-title">작품 추가</h2>' +
-      '<div class="jj-form-images"><span>사진 (최대 4장 · 1번이 대표 사진)</span><span style="font-size:11px;color:#8A8A8A">권장 크기 2400 × 3000px (최소 1200 × 1500px) · JPG·PNG·SVG</span>' +
+      '<div class="jj-form-images"><span>사진 (최대 4장 · 1번이 대표 사진)</span><span style="font-size:11px;color:#8A8A8A">권장 크기 2400 × 3000px (최소 1200 × 1500px) · JPG·PNG·SVG·GIF (GIF는 움직임 그대로, ' + GIF_MAX_MB + 'MB까지)</span>' +
       [1, 2, 3, 4].map(function (n) {
         return '<div class="jj-slot" data-slot="' + (n - 1) + '"><span class="jj-slot-no">' + n + '</span><span class="jj-slot-thumb"></span>' +
-          '<input type="file" name="image' + n + '" accept="image/*,.svg" aria-label="사진 ' + n + '">' +
+          '<input type="file" name="image' + n + '" accept="image/*,.svg,.gif" aria-label="사진 ' + n + '">' +
           '<label class="jj-slot-del"><input type="checkbox" name="del' + n + '"> 지우기</label></div>';
       }).join('') + '</div>' +
       '<label>제목 <input type="text" name="title" required></label>' +
@@ -564,6 +566,8 @@
     });
     var willHave = slots.some(function (x) { return x.file || (x.old && !x.del); });
     if (!willHave) { st.textContent = '사진을 한 장 이상 올려 주세요.'; return; }
+    var bigGif = slots.filter(function (x) { return x.file && isGif(x.file) && x.file.size > GIF_MAX_MB * 1024 * 1024; });
+    if (bigGif.length) { st.textContent = 'GIF는 ' + GIF_MAX_MB + 'MB까지 올릴 수 있어요. (' + bigGif.map(function (x) { return x.file.name + ' ' + (x.file.size / 1048576).toFixed(1) + 'MB'; }).join(', ') + ')'; return; }
     var btn = form.querySelector('.jj-submit');
     btn.disabled = true;
     st.textContent = '저장하는 중이에요…';
