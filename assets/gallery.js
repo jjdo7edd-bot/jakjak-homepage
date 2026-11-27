@@ -25,8 +25,30 @@
     });
   }
   var memToken = '';
-  function token() { if (memToken) return memToken; try { return sessionStorage.getItem('jj_t') || ''; } catch (e) { return ''; } }
-  function setToken(t) { memToken = t; try { if (t) sessionStorage.setItem('jj_t', t); else sessionStorage.removeItem('jj_t'); } catch (e) {} }
+  /* 로그인 유지: 체크하면 이 기기 브라우저에 90일 동안 남아요. 로그아웃하면 바로 지워져요. */
+  var KEEP_KEY = 'jj_keep', KEEP_DAYS = 90;
+  function keptToken() {
+    try {
+      var k = JSON.parse(localStorage.getItem(KEEP_KEY) || 'null');
+      if (k && k.t && k.exp > Date.now()) return k.t;
+      if (k) localStorage.removeItem(KEEP_KEY);
+    } catch (e) {}
+    return '';
+  }
+  function isKept() { return !!keptToken(); }
+  function token() {
+    if (memToken) return memToken;
+    try { var t = sessionStorage.getItem('jj_t'); if (t) return t; } catch (e) {}
+    return keptToken();
+  }
+  function setToken(t, keep) {
+    memToken = t;
+    try { if (t) sessionStorage.setItem('jj_t', t); else sessionStorage.removeItem('jj_t'); } catch (e) {}
+    try {
+      if (t && keep) localStorage.setItem(KEEP_KEY, JSON.stringify({ t: t, exp: Date.now() + KEEP_DAYS * 864e5 }));
+      else localStorage.removeItem(KEEP_KEY);
+    } catch (e) {}
+  }
   function b64encUtf8(str) { return btoa(unescape(encodeURIComponent(str))); }
   function b64decUtf8(b64) { return decodeURIComponent(escape(atob(b64.replace(/\s/g, '')))); }
   function imgSrc(path) {
@@ -359,11 +381,14 @@
     bar.innerHTML =
       '<strong>관리자 모드</strong>' +
       '<button type="button" class="jj-pw-change">비밀번호 변경</button>' +
-      '<button type="button" class="jj-logout">나가기</button>' +
+      '<button type="button" class="jj-exit">나가기</button>' +
+      '<button type="button" class="jj-logout">로그아웃</button>' +
       '<span class="jj-status" role="status"></span>';
     var section = grid.closest('section');
     section.insertBefore(bar, section.firstChild);
     statusEl = bar.querySelector('.jj-status');
+    /* 나가기: 관리자 화면만 닫아요 (로그인은 그대로). 로그아웃: 이 기기의 로그인 정보까지 지워요. */
+    bar.querySelector('.jj-exit').addEventListener('click', function () { location.href = 'gallery.html'; });
     bar.querySelector('.jj-logout').addEventListener('click', function () {
       setToken('');
       location.href = 'gallery.html';
@@ -435,6 +460,7 @@
       '<input type="password" name="pw1" placeholder="새 비밀번호" autocomplete="new-password" aria-label="새 비밀번호">' +
       '<input type="password" name="pw2" placeholder="새 비밀번호 확인" autocomplete="new-password" aria-label="새 비밀번호 확인">' +
       '</div>' +
+      '<label class="jj-login-keep"><input type="checkbox" name="keep"> 이 기기에서 로그인 유지 (' + KEEP_DAYS + '일)</label>' +
       '<button type="submit" class="jj-login-ok">확인</button>' +
       '<p class="jj-login-status" role="status"></p>' +
       '<button type="button" class="jj-login-forgot">비밀번호를 잊었어요</button>' +
@@ -454,6 +480,7 @@
     login.querySelector('.jj-login-setup').hidden = !setup;
     login.querySelector('[name=tok]').hidden = mode === 'change';
     login.querySelector('.jj-login-forgot').hidden = setup;
+    login.querySelector('.jj-login-keep').hidden = mode === 'change';
     login.querySelector('.jj-login-note').textContent =
       mode === 'setup' ? '처음 한 번만 설정해요.' :
       mode === 'reset' ? 'GitHub 토큰으로 새 비밀번호를 정해요.' : '새 비밀번호를 정해요.';
@@ -483,7 +510,7 @@
       fetchAdminBlob().then(function (blob) {
         if (!blob) { setLoginMode('setup'); btn.disabled = false; return; }
         return decryptToken(blob, pw).then(function (tok) {
-          setToken(tok);
+          setToken(tok, f.keep.checked);
           location.href = 'gallery.html?admin';
         }, function () { fail('비밀번호가 맞지 않아요.'); });
       });
@@ -495,8 +522,9 @@
     if (p1.length < 8) return fail('비밀번호는 8자 이상으로 정해 주세요.');
     if (p1 !== p2) return fail('새 비밀번호가 서로 달라요.');
     st.textContent = '저장하는 중…';
+    var keepNow = loginMode === 'change' ? isKept() : f.keep.checked;
     saveAdminBlob(tok, p1).then(function () {
-      setToken(tok);
+      setToken(tok, keepNow);
       if (loginMode === 'change') { login.hidden = true; status('비밀번호를 바꿨어요.'); btn.disabled = false; return; }
       location.href = 'gallery.html?admin';
     }).catch(function (err) { fail(err.message); });
@@ -530,9 +558,11 @@
     form.querySelector('form').addEventListener('submit', submitForm);
   }
 
-  var editing = -1;
+  /* 수정 중인 작품은 순서 번호가 아니라 고유 id로 기억해요 (중간에 삭제·순서 변경이 있어도 다른 작품을 덮어쓰지 않게) */
+  var editingId = null;
+  function findWork(id) { for (var n = 0; n < works.length; n++) if (works[n].id === id) return works[n]; return null; }
   function openForm(i) {
-    editing = i;
+    editingId = i >= 0 ? works[i].id : null;
     var f = form.querySelector('form');
     f.reset();
     form.querySelector('.jj-form-title').textContent = i >= 0 ? '작품 수정' : '작품 추가';
@@ -560,7 +590,9 @@
     var st = form.querySelector('.jj-form-status');
     var title = f.title.value.trim();
     if (!title) { st.textContent = '제목을 입력해 주세요.'; return; }
-    var olds = editing >= 0 ? imagesOf(works[editing]) : [];
+    var cur = editingId ? findWork(editingId) : null;
+    if (editingId && !cur) { form.hidden = true; editingId = null; status('이 작품은 이미 삭제됐어요. 수정 창을 닫았어요.', true); return; }
+    var olds = cur ? imagesOf(cur) : [];
     var slots = [0, 1, 2, 3].map(function (k) {
       return { file: f['image' + (k + 1)].files[0] || null, del: f['del' + (k + 1)].checked, old: olds[k] || null };
     });
@@ -577,7 +609,7 @@
     var chain = Promise.resolve();
     var result = [];
     var newThumbs = {};
-    var oldCover = olds[0] || null, oldThumb = editing >= 0 ? (works[editing].thumb || null) : null;
+    var oldCover = olds[0] || null, oldThumb = cur ? (cur.thumb || null) : null;
     slots.forEach(function (x, k) {
       chain = chain.then(function () {
         if (x.file) {
@@ -604,13 +636,15 @@
       return thumbFromExisting(cover);
     }).then(function (t) {
       thumb = t || null;
-      var item = { id: editing >= 0 ? works[editing].id : String(Date.now()), title: title, year: f.year.value.trim(), image: paths[0], images: paths, fit: f.querySelector('input[name=fit]:checked').value, description: f.description.value.trim() };
+      var item = { id: cur ? cur.id : String(Date.now()), title: title, year: f.year.value.trim(), image: paths[0], images: paths, fit: f.querySelector('input[name=fit]:checked').value, description: f.description.value.trim() };
       if (thumb) item.thumb = thumb;
-      var isEdit = editing >= 0;
+      var isEdit = !!cur;
       st.textContent = '저장하는 중이에요…';
       return saveJson((isEdit ? 'Update work: ' : 'Add work: ') + title, function (list) {
         var k = list.findIndex(function (x) { return x.id === item.id; });
-        if (k >= 0) list[k] = item; else list.unshift(item);
+        if (k >= 0) list[k] = item;
+        else if (isEdit) throw new Error('이 작품은 그사이 삭제돼서 저장하지 않았어요. 새로고침해 주세요.');
+        else list.unshift(item);
       }).then(function () {
         /* 바뀌거나 지운 예전 사진 정리 */
         var gone = olds.filter(function (o) { return paths.indexOf(o) < 0; });
@@ -636,6 +670,8 @@
       if (!confirm('"' + works[i].title + '" 작품을 삭제할까요?')) return;
       var removed = works[i];
       msg = 'Remove work: ' + removed.title;
+      /* 지우는 작품의 수정 창이 열려 있으면 닫아요 (닫지 않고 저장하면 지운 작품이 되살아나요) */
+      if (editingId === removed.id) { form.hidden = true; editingId = null; }
       status('삭제하는 중이에요…');
       saveJson(msg, function (list) {
         var k = list.findIndex(function (x) { return x.id === removed.id; });

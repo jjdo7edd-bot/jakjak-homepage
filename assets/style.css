@@ -25,6 +25,9 @@ img{max-width:100%}
 .jj-login-ok:hover{background:#FF4500;border-color:#FF4500}
 .jj-login-ok:disabled{opacity:.5}
 .jj-login-status{margin:0;min-height:1em;color:#C0392B;font-size:11px}
+.jj-login-keep{display:flex;align-items:center;gap:6px;font-size:11px;color:#555555;cursor:pointer}
+.jj-login-keep[hidden]{display:none}
+.jj-login-keep input{margin:0;accent-color:#FF4500}
 .jj-login-forgot{align-self:flex-start;font:inherit;font-size:11px;padding:4px 0;border:0;background:none;color:#8A8A8A;cursor:pointer;text-decoration:underline}
 .work-cell{display:flex;flex-direction:column;gap:8px}
 .work-admin{display:flex;gap:4px;flex-wrap:wrap}
