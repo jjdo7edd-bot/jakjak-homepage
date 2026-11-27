@@ -1,19 +1,6 @@
 {
   "works": [
     {
-      "id": "1795761987310",
-      "title": "다문화의다는누구를위한것입니까",
-      "year": "Book",
-      "image": "assets/works/1795762167738-dz9v.jpg",
-      "images": [
-        "assets/works/1795762167738-dz9v.jpg",
-        "assets/works/1795761983114-wyqe.jpg"
-      ],
-      "fit": "contain",
-      "description": "이 책은 용인문화원-용인시민신문사가 함꼐 기획했으며, 외국 시민들의 일상과 거리감을 중심으로 ‘다문화 수용’이 단순한 물리적 공존이 아니라 ‘관계 맺기’의 영역임을 강조, 용인에서 생활하는 외국 시민 3명과의 인터뷰를 중심으로 ‘함께 사는 것’과 ‘함께 살아가는 것’ 사이의 틈을 조명한 기획물입니다.\n\n2025.10.",
-      "thumb": "assets/works/1795762167738-dz9v-t.jpg"
-    },
-    {
       "id": "1795661820626",
       "title": "You're already doing great",
       "year": "cover",
@@ -26,6 +13,19 @@
       "fit": "contain",
       "description": "수능을 앞둔 2008년생을\n응원하기 위해 만든 앨범 커버.",
       "thumb": "assets/works/1795661813074-a4vb-t.jpg"
+    },
+    {
+      "id": "1795761987310",
+      "title": "다문화의다는누구를위한것입니까",
+      "year": "Book",
+      "image": "assets/works/1795762167738-dz9v.jpg",
+      "images": [
+        "assets/works/1795762167738-dz9v.jpg",
+        "assets/works/1795761983114-wyqe.jpg"
+      ],
+      "fit": "contain",
+      "description": "이 책은 용인문화원-용인시민신문사가 함꼐 기획했으며, 외국 시민들의 일상과 거리감을 중심으로 ‘다문화 수용’이 단순한 물리적 공존이 아니라 ‘관계 맺기’의 영역임을 강조, 용인에서 생활하는 외국 시민 3명과의 인터뷰를 중심으로 ‘함께 사는 것’과 ‘함께 살아가는 것’ 사이의 틈을 조명한 기획물입니다.\n\n2025.10.",
+      "thumb": "assets/works/1795762167738-dz9v-t.jpg"
     },
     {
       "id": "1795615339718",
