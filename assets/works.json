@@ -1,6 +1,17 @@
 {
   "works": [
     {
+      "id": "1795790101531",
+      "title": "너글너글워크숍 Motion",
+      "year": "",
+      "image": "assets/works/1795790099783-zzex.gif",
+      "images": [
+        "assets/works/1795790099783-zzex.gif"
+      ],
+      "fit": "contain",
+      "description": "너글너글워크숍 로고 모션。"
+    },
+    {
       "id": "1795615308446",
       "title": "너글너글워크숍",
       "year": "Branding",
